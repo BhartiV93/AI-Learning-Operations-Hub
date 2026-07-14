@@ -1,0 +1,16 @@
+{
+    "id": "KB-001",
+    "title": "Trainer Standard Operating Procedure",
+    "audience": "Trainer",
+    "category": "Learning Operations",
+    "owner": "Learning Operations Team",
+    "version": "1.0",
+    "status": "Approved",
+    "tags": [
+        "Attendance",
+        "LMS",
+        "Delivery",
+        "Reporting",
+        "Assessments"
+    ]
+}
