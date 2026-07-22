@@ -1,9 +1,6 @@
 import os
 from dotenv import load_dotenv
-
-# import namespaces
-from openai import OpenAI
-from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+from orchestrator import LearningAssistantOrchestrator
 
 def select_user_role():
     """Allow the user to select their role in the learning environment."""
@@ -57,6 +54,14 @@ information has been explicitly provided in the conversation.
 
 When information is unavailable, clearly say that sample or connected data
 would be required.
+
+When organisational knowledge is supplied:
+
+- Treat it as the primary source of truth.
+- Do not contradict it using general knowledge.
+- Do not invent organisational procedures, timelines, policies, or data.
+- State clearly when the available knowledge does not answer the question.
+- Mention the source document used when providing a grounded answer.
 
 Keep responses practical, structured, and concise.
 """
@@ -136,18 +141,8 @@ def main():
     try:
         # Get configuration settings
         load_dotenv()
-        azure_openai_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
-        model_deployment = os.getenv("MODEL_DEPLOYMENT")
-
-        # Initialize the OpenAI client
-        token_provider = get_bearer_token_provider(
-            DefaultAzureCredential(), "https://ai.azure.com/.default"
-        )
-
-        openai_client = OpenAI(
-            base_url=azure_openai_endpoint,
-            api_key=token_provider
-        )
+        orchestrator = LearningAssistantOrchestrator()
+     
         # Loop until the user wants to quit
         # Track responses
         user_role = select_user_role()
@@ -165,18 +160,23 @@ def main():
             if not input_text:
                 print("Please enter a question or type 'quit' to exit.")
                 continue
-           
+
+            stream, knowledge_sources = orchestrator.process_question(
+                question=input_text,
+                assistant_instructions=assistant_instructions,
+                previous_response_id=last_response_id,
+                )
+
             print("\nAssistant: ", end="")
 
-            # Get a response
-            stream = openai_client.responses.create(
-                model=model_deployment,
-                instructions=assistant_instructions,
-                input=input_text,
-                previous_response_id=last_response_id,
-                stream=True
-                )
-                
+            if knowledge_sources:
+                print(
+                    "\nKnowledge source(s): "
+                    + ", ".join(knowledge_sources)
+                    )
+            else:
+                print("\nKnowledge source: No relevant internal document found") 
+
             for event in stream:
                 if event.type == "response.output_text.delta":
                      print(event.delta, end="", flush=True)
@@ -184,7 +184,7 @@ def main():
                 elif event.type == "response.completed":
                     last_response_id = event.response.id
                     print()
-            print("\n")
+
             
     except Exception as ex:
         print(ex)
